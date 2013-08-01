@@ -116,6 +116,10 @@ start_kern_control(void)
         gKernCtlRegistered = TRUE;
         return KERN_SUCCESS;
     }
+	else if(error == EEXIST) {
+		LOG_MSG("[ERROR] Connection already exists!\n");
+		return KERN_FAILURE;
+	}
     else
     {
         LOG_MSG("[ERROR] Could not initialize control channel!\n");
@@ -292,6 +296,8 @@ ctl_set(kern_ctl_ref ctl_ref, u_int32_t unit, void *unitinfo, int opt, void *dat
         }
 		case REMOVE_ALL_APPS:
 		{
+			LOG_MSG("[DEBUG] Removing all apps: %d\n", HASH_CNT(hh, g_targets_list));
+			
 			targets_t temp;
 			targets_t target;
 			HASH_ITER(hh, g_targets_list, target, temp) {
