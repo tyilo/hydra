@@ -68,6 +68,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <signal.h>
+#include <libgen.h>
 
 #include <mach/mach.h>
 #include <mach/mach_types.h>
@@ -75,11 +76,36 @@
 #include <mach/mach_vm.h>
 
 #include "shared_data.h"
+#include "sysctl_utils.h"
+#include "mach_vm_utils.h"
+#include "patch_loader.h"
+#include "utils.h"
 
 static int g_socket = -1;
+bool socket_connected = false;
+
+void cleanup(void) {
+	if(socket_connected) {
+		kern_return_t ret = setsockopt(g_socket, SYSPROTO_CONTROL, REMOVE_ALL_APPS, NULL, 0);
+		if (ret) {
+			printf("socket send failed!\n");
+		}
+	}
+	
+	exit(0);
+}
+
+void signal_handler(int signal) {
+	exit(0); // Calls atexit function
+}
 
 int main(int argc, const char * argv[])
-{
+{	
+	atexit(cleanup);
+	signal(SIGINT, signal_handler);
+	signal(SIGQUIT, signal_handler);
+	signal(SIGTERM, signal_handler);
+	
     struct sockaddr_ctl sc = { 0 };
     struct ctl_info ctl_info = { 0 };
     int ret = 0;
@@ -116,20 +142,73 @@ int main(int argc, const char * argv[])
         exit(1);
     }
     
-    // add a target to the kernel list
-    if (!ret)
-    {
-        char *target = "Dash";
-        ret = setsockopt(g_socket, SYSPROTO_CONTROL, ADD_APP, (void*)target, (socklen_t)strlen(target)+1);
-        if (ret)
-            printf("socket send failed!\n");
-    }
+	socket_connected = true;
+	
+	ret = setsockopt(g_socket, SYSPROTO_CONTROL, REMOVE_ALL_APPS, NULL, 0);
+	if (ret) {
+		printf("socket send failed! (REMOVE_ALL_APPS)\n");
+	}
+	
+	char **execs = get_exec_list();
+	
+	for(int i = 0; execs[i] != NULL; i++) {
+		ret = setsockopt(g_socket, SYSPROTO_CONTROL, ADD_APP, (void*)execs[i], (socklen_t)strlen(execs[i])+1);
+		if (ret) {
+			printf("socket send failed!\n");
+		}
+	}
+	
     pid_t pid;
     ssize_t n;
     // loop and get target processes from kernel
     while ((n = recv(g_socket, &pid, sizeof(pid_t), 0)))
     {
-        printf("[INFO] Received pid for target process is %d\n", pid);
+		char *path = path_for_pid(pid);
+		if(!path) {
+			goto resume;
+		}
+		
+		char *name = basename(path);
+		if(!name) {
+			goto resume;
+		}
+        printf("[INFO] Received pid for target process is %d, %s\n", pid, name);
+		
+		patch_t *patch = get_patch(name);
+		if(!patch) {
+			printf("[ERROR] No valid patch found!\n");
+			goto resume;
+		}
+		
+		if(patch->path) {
+			if(strcmp(patch->path, path) != 0) {
+				printf("[INFO] Path doesn't match: %s != %s\n", patch->path, path);
+				goto resume;
+			}
+		}
+		
+		if(patch->sha1sum) {
+			unsigned char *bytes = sha1file(path);
+			if(!bytes) {
+				goto resume;
+			}
+			
+			char *sha1sum = hex(bytes, 20);
+			free(bytes);
+			if(!sha1sum) {
+				goto resume;
+			}
+			
+			int cmp = strcmp(patch->sha1sum, sha1sum);
+			if(cmp != 0) {
+				printf("[INFO] SHA1 hashes doesn't match: %s != %s\n", patch->sha1sum, sha1sum);
+			}
+			free(sha1sum);
+			if(cmp != 0) {
+				goto resume;
+			}
+		}
+		
         mach_port_t task;
         kern_return_t ret = 0;
         ret = task_for_pid(mach_task_self(), pid, &task);
@@ -138,24 +217,24 @@ int main(int argc, const char * argv[])
             printf("task for pid failed!\n");
             continue;
         }
-        
-        // do whatever processing and patching we need to the target
-        uint16_t patch1 = 0x9090;
-        mach_msg_type_number_t len = 2;
-#define TARGET_ADDRESS 0
-        // change memory protection to writable
-        mach_vm_protect(task, (mach_vm_address_t)TARGET_ADDRESS, len, FALSE, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
-        // patch the process
-        ret = mach_vm_write(task, (mach_vm_address_t)TARGET_ADDRESS, (vm_offset_t)&patch1, len);
-        if (ret)
-        {
-            printf("mach vm write failed! %d\n", ret);
-        }
-        // restore original protection
-        mach_vm_protect(task, (mach_vm_address_t)TARGET_ADDRESS, len, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
-        // not sure why I added this small pause, maybe some test?
-        sleep(2);
-        // resume process
+		
+		for(int i = 0; i < patch->len; i++) {
+			patch_location_t *location = &patch->locations[i];
+			bool success = write_vm(task, location->address, location->data, location->size);
+			
+			if(success) {
+				printf("Patched successfully!\n");
+			} else {
+				printf("Patching failed!\n");
+			}
+		}
+		
+	resume:
+		if(path) {
+			free(path);
+		}
+		
+		// Resume process
         kill(pid, SIGCONT);
     }
     printf("[INFO] My work is done, see you later!\n");

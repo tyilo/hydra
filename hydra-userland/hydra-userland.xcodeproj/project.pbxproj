@@ -7,8 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5572028917AB033A00DF7738 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 5572028817AB033A00DF7738 /* utils.c */; };
+		55735E5F17A9A69700684806 /* sysctl_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 55735E5D17A9A69700684806 /* sysctl_utils.c */; };
+		55BABA0517A87F86003BCC59 /* mach_vm_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 55BABA0317A87F85003BCC59 /* mach_vm_utils.c */; };
+		55BABA0717A883B2003BCC59 /* patch_loader.c in Sources */ = {isa = PBXBuildFile; fileRef = 55BABA0617A883B2003BCC59 /* patch_loader.c */; };
 		7B90F213166EE86B00DD5FC6 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 7B90F212166EE86B00DD5FC6 /* main.c */; };
-		7B90F215166EE86B00DD5FC6 /* hydra_userland.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7B90F214166EE86B00DD5FC6 /* hydra_userland.1 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -18,17 +21,23 @@
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
-				7B90F215166EE86B00DD5FC6 /* hydra_userland.1 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5572028817AB033A00DF7738 /* utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = utils.c; sourceTree = "<group>"; };
+		5572028A17AB034100DF7738 /* utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
+		55735E5D17A9A69700684806 /* sysctl_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sysctl_utils.c; sourceTree = "<group>"; };
+		55735E5E17A9A69700684806 /* sysctl_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sysctl_utils.h; sourceTree = "<group>"; };
+		55BABA0317A87F85003BCC59 /* mach_vm_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mach_vm_utils.c; sourceTree = "<group>"; };
+		55BABA0417A87F86003BCC59 /* mach_vm_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mach_vm_utils.h; sourceTree = "<group>"; };
+		55BABA0617A883B2003BCC59 /* patch_loader.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = patch_loader.c; sourceTree = "<group>"; };
+		55BABA0817A8840D003BCC59 /* patch_loader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = patch_loader.h; sourceTree = "<group>"; };
 		7B4E00F9168CA9DF0014D6A3 /* shared_data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = shared_data.h; path = ../../hydra/hydra/shared_data.h; sourceTree = "<group>"; };
 		7B90F20E166EE86B00DD5FC6 /* hydra-userland */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "hydra-userland"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7B90F212166EE86B00DD5FC6 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
-		7B90F214166EE86B00DD5FC6 /* hydra_userland.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = hydra_userland.1; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,7 +72,14 @@
 			children = (
 				7B90F212166EE86B00DD5FC6 /* main.c */,
 				7B4E00F9168CA9DF0014D6A3 /* shared_data.h */,
-				7B90F214166EE86B00DD5FC6 /* hydra_userland.1 */,
+				5572028A17AB034100DF7738 /* utils.h */,
+				5572028817AB033A00DF7738 /* utils.c */,
+				55BABA0817A8840D003BCC59 /* patch_loader.h */,
+				55BABA0617A883B2003BCC59 /* patch_loader.c */,
+				55735E5E17A9A69700684806 /* sysctl_utils.h */,
+				55735E5D17A9A69700684806 /* sysctl_utils.c */,
+				55BABA0417A87F86003BCC59 /* mach_vm_utils.h */,
+				55BABA0317A87F85003BCC59 /* mach_vm_utils.c */,
 			);
 			path = "hydra-userland";
 			sourceTree = "<group>";
@@ -120,6 +136,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				7B90F213166EE86B00DD5FC6 /* main.c in Sources */,
+				55BABA0517A87F86003BCC59 /* mach_vm_utils.c in Sources */,
+				55BABA0717A883B2003BCC59 /* patch_loader.c in Sources */,
+				55735E5F17A9A69700684806 /* sysctl_utils.c in Sources */,
+				5572028917AB033A00DF7738 /* utils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
