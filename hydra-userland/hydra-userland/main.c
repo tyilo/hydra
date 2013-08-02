@@ -81,6 +81,9 @@
 #include "patch_loader.h"
 #include "utils.h"
 
+// nm /usr/lib/dyld | grep '__dyld_start$' | awk '{ print $1 }'
+#define DYLD_START_ADDRESS 0x7fff5fc01028
+
 static int g_socket = -1;
 bool socket_connected = false;
 
@@ -218,9 +221,36 @@ int main(int argc, const char * argv[])
             goto resume;
         }
 		
+		thread_act_port_array_t threadList;
+		mach_msg_type_number_t threadCount;
+		ret = task_threads(task, &threadList, &threadCount);
+		if(ret) {
+			printf("task_threads failed!\n");
+			goto resume;
+		}
+		
+		if(threadCount == 0) {
+			printf("no threads could be found!\n");
+			goto resume;
+		}
+		
+		x86_thread_state64_t state;
+		mach_msg_type_number_t stateCount = x86_AVX_STATE64_COUNT;
+		ret = thread_get_state(threadList[0], x86_THREAD_STATE64, (thread_state_t)&state, &stateCount);
+		
+		if(ret) {
+			printf("thread_get_state failed!\n");
+			goto resume;
+		}
+		
+		mach_vm_address_t dyld_start_address_slided = state.__rip;
+		mach_vm_offset_t aslr_slide = dyld_start_address_slided - DYLD_START_ADDRESS;
+		printf("ASLR slide for process is: 0x%llx\n", aslr_slide);
+		
 		for(int i = 0; i < patch->len; i++) {
 			patch_location_t *location = &patch->locations[i];
-			bool success = write_vm(task, location->address, location->data, location->size);
+			
+			bool success = write_vm(task, location->address + aslr_slide, location->data, location->size);
 			
 			if(success) {
 				printf("Patched successfully!\n");
