@@ -215,7 +215,7 @@ int main(int argc, const char * argv[])
         if (ret)
         {
             printf("task for pid failed!\n");
-            continue;
+            goto resume;
         }
 		
 		for(int i = 0; i < patch->len; i++) {
