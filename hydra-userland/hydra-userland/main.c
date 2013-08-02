@@ -259,6 +259,8 @@ int main(int argc, const char * argv[])
 			}
 		}
 		
+		free_patch(patch);
+		
 	resume:
 		if(path) {
 			free(path);
