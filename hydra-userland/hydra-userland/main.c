@@ -82,7 +82,10 @@
 #include "utils.h"
 
 // nm /usr/lib/dyld | grep '__dyld_start$' | awk '{ print $1 }'
-#define DYLD_START_ADDRESS 0x7fff5fc01028
+#define DYLD_START_ADDRESS_64 0x7fff5fc01028
+
+// nm -arch i386 /usr/lib/dyld | grep '__dyld_start$' | awk '{ print $1 }'
+#define DYLD_START_ADDRESS_32 0x8fe01030
 
 static int g_socket = -1;
 bool socket_connected = false;
@@ -234,17 +237,32 @@ int main(int argc, const char * argv[])
 			goto resume;
 		}
 		
-		x86_thread_state64_t state;
-		mach_msg_type_number_t stateCount = x86_AVX_STATE64_COUNT;
-		ret = thread_get_state(threadList[0], x86_THREAD_STATE64, (thread_state_t)&state, &stateCount);
+		bool bits64 = proc_info_for_pid(pid)->kp_proc.p_flag & P_LP64;
+		
+		mach_vm_address_t dyld_start_address_slided;
+		mach_vm_offset_t aslr_slide;
+		
+		if(bits64) {
+			x86_thread_state64_t state;
+			mach_msg_type_number_t stateCount = x86_AVX_STATE64_COUNT;
+			ret = thread_get_state(threadList[0], x86_THREAD_STATE64, (thread_state_t)&state, &stateCount);
+			
+			dyld_start_address_slided = state.__rip;
+			aslr_slide = dyld_start_address_slided - DYLD_START_ADDRESS_64;
+		} else {
+			x86_thread_state32_t state;
+			mach_msg_type_number_t stateCount = x86_THREAD_STATE32_COUNT;
+			ret = thread_get_state(threadList[0], x86_THREAD_STATE32, (thread_state_t)&state, &stateCount);
+			
+			dyld_start_address_slided = state.__eip;
+			aslr_slide = dyld_start_address_slided - DYLD_START_ADDRESS_32;
+		}
 		
 		if(ret) {
 			printf("thread_get_state failed!\n");
 			goto resume;
 		}
 		
-		mach_vm_address_t dyld_start_address_slided = state.__rip;
-		mach_vm_offset_t aslr_slide = dyld_start_address_slided - DYLD_START_ADDRESS;
 		printf("ASLR slide for process is: 0x%llx\n", aslr_slide);
 		
 		for(int i = 0; i < patch->len; i++) {

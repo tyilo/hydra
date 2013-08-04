@@ -7,7 +7,6 @@
 //
 
 #include <stdio.h>
-#include <sys/sysctl.h>
 #include <stdlib.h>
 #include <string.h>
 

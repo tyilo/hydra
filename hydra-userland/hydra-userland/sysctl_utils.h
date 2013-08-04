@@ -10,6 +10,7 @@
 #define mach_vm_write_test_sysctl_utils_h
 
 #include <stdbool.h>
+#include <sys/sysctl.h>
 
 struct kinfo_proc *proc_list(size_t *count);
 
