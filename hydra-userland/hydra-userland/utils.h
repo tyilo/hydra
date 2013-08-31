@@ -12,4 +12,6 @@
 unsigned char *sha1file(char *path);
 char *hex(unsigned char *bytes, size_t len);
 
+void int_to_bytes(unsigned char *bytes, unsigned long long value, int size);
+
 #endif

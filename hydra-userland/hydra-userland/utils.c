@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <string.h>
 
 unsigned char *sha1file(char *path) {
 	FILE *f = fopen(path, "r");
@@ -40,4 +41,10 @@ char *hex(unsigned char *bytes, size_t len) {
 	}
 	
 	return str;
+}
+
+void int_to_bytes(unsigned char *bytes, unsigned long long value, int size) {
+	unsigned long long *pointer = &value;
+	
+	memcpy(bytes, pointer, size);
 }
