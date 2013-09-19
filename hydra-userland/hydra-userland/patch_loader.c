@@ -10,7 +10,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <ctype.h>
 #include <libgen.h>
 #include <wordexp.h>
@@ -69,7 +68,7 @@ char *tilde_expand(const char *path) {
 }
 
 void free_patch(patch_t *patch) {
-	for(int i = 0; i < patch->len; i++) {
+	for(int i = 0; i < patch->locations_len; i++) {
 		free(patch->locations[i].data);
 	}
 	
@@ -84,6 +83,15 @@ void free_patch(patch_t *patch) {
 	
 	free(patch);
 }
+
+char *next_space(char *str) {
+	return strpbrk(str, " \t\n\v\f\r");
+}
+
+#define BEGINS_WITH(line, str, first_space) \
+	((strncasecmp(line, str, sizeof(str) - 1) == 0) && \
+	(first_space == line + sizeof(str)))
+#define MALLOC_N(var, num)      var = malloc(sizeof(*var) * num)
 
 patch_t *get_patch(char *name) {
 	size_t namelen = strlen(name);
@@ -105,45 +113,25 @@ patch_t *get_patch(char *name) {
 	char *line = NULL;
 	size_t len = 0;
 	ssize_t read;
-	int valid_lines = 0;
-	
-	while((read = getline(&line, &len, f)) != -1) {
-		if(read == 1 || line[0] == '#') {
-			continue;
-		}
-		
-		valid_lines++;
-	}
-	
-	rewind(f);
-	
-	if(valid_lines == 0) {
-		fclose(f);
-		return NULL;
-	}
 	
 	patch_t *patch = malloc(sizeof(patch_t));
-	
-	patch->len = valid_lines;
-	patch->locations = malloc(sizeof(patch_location_t) * (valid_lines));
+	patch->allocations_len = 0;
+	patch->locations_len = 0;
 	patch->path = NULL;
 	patch->sha1sum = NULL;
 	
+	allocation_names *allocations = NULL;
+	
 	bool valid_line = true;
-	int location_num = 0;
-		
+	
 	while((read = getline(&line, &len, f)) != -1) {
 		if(read == 1 || line[0] == '#') {
 			continue;
 		}
 		
-		char *first_space = strpbrk(line, " \t\n\v\f\r");
-		if(!first_space) {
-			valid_line = false;
-			break;
-		}
+		char *first_space = next_space(line);
 		
-		if(strncasecmp(line, "path", 4) == 0) {
+		if(BEGINS_WITH(line, "path", first_space)) {
 			if(patch->path) {
 				valid_line = false;
 				break;
@@ -165,7 +153,7 @@ patch_t *get_patch(char *name) {
 			continue;
 		}
 		
-		if(strncasecmp(line, "sha1sum", 7) == 0) {
+		if(BEGINS_WITH(line, "sha1sum", first_space)) {
 			if(patch->sha1sum) {
 				valid_line = false;
 				break;
@@ -188,9 +176,106 @@ patch_t *get_patch(char *name) {
 			continue;
 		}
 		
+		if(BEGINS_WITH(line, "alloc", first_space)) {
+			char *c = first_space;
+			while(isspace(*++c)) {}
+			
+			if(*c == '\0') {
+				valid_line = false;
+				break;
+			}
+			
+			char *second_space = next_space(c);
+			if(second_space == NULL) {
+				valid_line = false;
+				break;
+			}
+			
+			c = second_space;
+			while(isspace(*++c)) {}
+			
+			if(*c == '\0') {
+				valid_line = false;
+				break;
+			}
+			
+			char *third_space = next_space(c);
+			if(third_space == NULL) {
+				valid_line = false;
+				break;
+			}
+			
+			if(first_space[1] != '$') {
+				valid_line = false;
+				break;
+			}
+			
+			char *endptr;
+			unsigned long long size = strtoull(second_space + 1, &endptr, 0);
+			
+			if(endptr != third_space) {
+				valid_line = false;
+				break;
+			}
+			
+			size_t namesize = second_space - first_space;
+			char *name = malloc(namesize);
+			memcpy(name, first_space + 1, namesize - 1);
+			name[namesize - 1] = '\0';
+			
+			allocation_names *a = malloc(sizeof(allocation_names));
+			a->name = name;
+			a->index = patch->allocations_len;
+			a->size = size;
+			HASH_ADD_KEYPTR(hh, allocations, a->name, namesize - 1, a);
+			
+			patch->allocations_len++;
+		}
+		
+		if(first_space[-1] == ':') {
+			patch->locations_len++;
+		}
+	}
+	
+	free(line);
+	
+	if(!valid_line) {
+		// FIXME: goto ERROR;
+	}
+	
+	MALLOC_N(patch->allocation_sizes, patch->allocations_len);
+	MALLOC_N(patch->locations, patch->locations_len);
+	
+	allocation_names *alloc, *tmp;
+	
+	HASH_ITER(hh, allocations, alloc, tmp) {
+		patch->allocation_sizes[alloc->index] = alloc->size;
+	}
+	
+	rewind(f);
+	
+	int location_num = 0;
+	
+	while((read = getline(&line, &len, f)) != -1) {
+		if(read == 1 || line[0] == '#') {
+			continue;
+		}
+		
+		char *first_space = next_space(line);
+		
+		if(first_space == NULL) {
+			valid_line = false;
+			break;
+		}
+		
+		if(first_space[-1] == ':') {
+			
+		}
+		
 		patch_location_t *location = &patch->locations[location_num];
 		char *endptr;
 		
+		location->address_is_allocation = false;
 		location->address = strtoull(line, &endptr, 16);
 			
 		if(endptr != first_space) {
@@ -232,7 +317,7 @@ patch_t *get_patch(char *name) {
 		location_num++;
 	}
 	
-	patch->len = location_num;
+	patch->locations_len = location_num;
 	
 	free(line);
 	fclose(f);
@@ -241,7 +326,7 @@ patch_t *get_patch(char *name) {
 		patch->locations = realloc(patch->locations, sizeof(patch_location_t) * location_num);
 		return patch;
 	} else {
-		patch->len = location_num;
+		patch->locations_len = location_num;
 		free_patch(patch);
 		return NULL;
 	}

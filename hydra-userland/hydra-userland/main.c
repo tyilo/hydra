@@ -157,6 +157,9 @@ int main(int argc, const char * argv[])
 	
 	char **execs = get_exec_list();
 	
+	//char *exec_list[] = {"Airfoil", NULL};
+	//execs = (char **)&exec_list;
+	
 	for(int i = 0; execs[i] != NULL; i++) {
 		ret = setsockopt(g_socket, SYSPROTO_CONTROL, ADD_APP, (void*)execs[i], (socklen_t)strlen(execs[i])+1);
 		if (ret) {
@@ -265,15 +268,50 @@ int main(int argc, const char * argv[])
 		
 		printf("ASLR slide for process is: 0x%llx\n", aslr_slide);
 		
-		for(int i = 0; i < patch->len; i++) {
-			patch_location_t *location = &patch->locations[i];
+		{
+			mach_vm_address_t allocs[patch->allocations_len];
 			
-			bool success = write_vm(task, location->address + aslr_slide, location->data, location->size);
+			for(int i = 0; i < patch->allocations_len; i++) {
+				ret = mach_vm_allocate(task, &allocs[i], patch->allocation_sizes[i], VM_FLAGS_ANYWHERE);
+				if(ret) {
+					printf("mach_vm_allocate failed!\n");
+					goto resume;
+				}
+			}
 			
-			if(success) {
-				printf("Patched successfully!\n");
-			} else {
-				printf("Patching failed!\n");
+			for(int i = 0; i < patch->locations_len; i++) {
+				patch_location_t *location = &patch->locations[i];
+				
+				mach_vm_address_t address;
+				
+				if(location->address_is_allocation) {
+					address = allocs[i];
+				} else {
+					address = location->address + aslr_slide;
+				}
+				
+				for(int j = 0; j < location->alloc_addresses_len; j++) {
+					size_t alloc_index = location->alloc_indices[j];
+					if(alloc_index >= patch->allocations_len) {
+						printf("Alloc index out of range!\n");
+						goto resume;
+					}
+					mach_vm_address_t replacement_value = allocs[alloc_index];
+					
+					size_t replacement_index = location->replacement_indices[j];
+					
+					unsigned char *replacement_start = &location->data[replacement_index];
+					
+					int_to_bytes(replacement_start, replacement_value, bits64? 8: 4);
+				}
+				
+				bool success = write_vm(task, address, location->data, location->size);
+				
+				if(success) {
+					printf("Patched successfully!\n");
+				} else {
+					printf("Patching failed!\n");
+				}
 			}
 		}
 		

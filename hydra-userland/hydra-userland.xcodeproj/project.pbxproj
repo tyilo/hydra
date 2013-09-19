@@ -27,6 +27,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		552E5FF217B17C2500B4AFE6 /* uthash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = uthash.h; path = ../uthash.h; sourceTree = "<group>"; };
 		5572028817AB033A00DF7738 /* utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = utils.c; sourceTree = "<group>"; };
 		5572028A17AB034100DF7738 /* utils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
 		55735E5D17A9A69700684806 /* sysctl_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sysctl_utils.c; sourceTree = "<group>"; };
@@ -72,6 +73,7 @@
 			children = (
 				7B90F212166EE86B00DD5FC6 /* main.c */,
 				7B4E00F9168CA9DF0014D6A3 /* shared_data.h */,
+				552E5FF217B17C2500B4AFE6 /* uthash.h */,
 				5572028A17AB034100DF7738 /* utils.h */,
 				5572028817AB033A00DF7738 /* utils.c */,
 				55BABA0817A8840D003BCC59 /* patch_loader.h */,
