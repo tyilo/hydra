@@ -70,6 +70,7 @@
 #include <signal.h>
 #include <libgen.h>
 
+#include <mach-o/loader.h>
 #include <mach/mach.h>
 #include <mach/mach_types.h>
 #include <mach/i386/thread_status.h>
@@ -81,7 +82,7 @@
 #include "patch_loader.h"
 #include "utils.h"
 
-// nm /usr/lib/dyld | grep '__dyld_start$' | awk '{ print $1 }'
+// nm -arch x86_64 /usr/lib/dyld | grep '__dyld_start$' | awk '{ print $1 }'
 #define DYLD_START_ADDRESS_64 0x7fff5fc01028
 
 // nm -arch i386 /usr/lib/dyld | grep '__dyld_start$' | awk '{ print $1 }'
@@ -237,25 +238,32 @@ int main(int argc, const char * argv[])
 			goto resume;
 		}
 		
+		thread_act_t thread = threadList[0];
+		
 		bool bits64 = proc_info_for_pid(pid)->kp_proc.p_flag & P_LP64;
 		
 		mach_vm_address_t dyld_start_address_slided;
-		mach_vm_offset_t aslr_slide;
+		mach_vm_offset_t aslr_slide = 0;
 		
-		if(bits64) {
-			x86_thread_state64_t state;
-			mach_msg_type_number_t stateCount = x86_AVX_STATE64_COUNT;
-			ret = thread_get_state(threadList[0], x86_THREAD_STATE64, (thread_state_t)&state, &stateCount);
-			
-			dyld_start_address_slided = state.__rip;
-			aslr_slide = dyld_start_address_slided - DYLD_START_ADDRESS_64;
-		} else {
-			x86_thread_state32_t state;
-			mach_msg_type_number_t stateCount = x86_THREAD_STATE32_COUNT;
-			ret = thread_get_state(threadList[0], x86_THREAD_STATE32, (thread_state_t)&state, &stateCount);
-			
-			dyld_start_address_slided = state.__eip;
-			aslr_slide = dyld_start_address_slided - DYLD_START_ADDRESS_32;
+		uint32_t flags = macho_flags(path, bits64);
+		bool aslr_enabled = flags & MH_PIE;
+		
+		if(aslr_enabled) {
+			if(bits64) {
+				x86_thread_state64_t state;
+				mach_msg_type_number_t stateCount = x86_AVX_STATE64_COUNT;
+				ret = thread_get_state(thread, x86_THREAD_STATE64, (thread_state_t)&state, &stateCount);
+				
+				dyld_start_address_slided = state.__rip;
+				aslr_slide = dyld_start_address_slided - DYLD_START_ADDRESS_64;
+			} else {
+				x86_thread_state32_t state;
+				mach_msg_type_number_t stateCount = x86_THREAD_STATE32_COUNT;
+				ret = thread_get_state(thread, x86_THREAD_STATE32, (thread_state_t)&state, &stateCount);
+				
+				dyld_start_address_slided = state.__eip;
+				aslr_slide = dyld_start_address_slided - DYLD_START_ADDRESS_32;
+			}
 		}
 		
 		if(ret) {

@@ -6,9 +6,11 @@
 //  Copyright (c) 2013 Put.as. All rights reserved.
 //
 
+#include "utils.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <mach-o/loader.h>
 
 unsigned char *sha1file(char *path) {
 	FILE *f = fopen(path, "r");
@@ -40,4 +42,24 @@ char *hex(unsigned char *bytes, size_t len) {
 	}
 	
 	return str;
+}
+
+uint32_t macho_flags(char *path, bool bits64) {
+	FILE *f = fopen(path, "r");
+	
+	uint32_t flags;
+	
+	if(bits64) {
+		struct mach_header_64 mach_header;
+		fread(&mach_header, sizeof(mach_header), 1, f);
+		flags = mach_header.flags;
+	} else {
+		struct mach_header mach_header;
+		fread(&mach_header, sizeof(mach_header), 1, f);
+		flags = mach_header.flags;
+	}
+	
+	fclose(f);
+	
+	return flags;
 }
